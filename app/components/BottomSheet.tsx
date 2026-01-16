@@ -32,7 +32,7 @@ export default function BottomSheet({ children }: BottomSheetProps) {
         >
           <div className="w-12 h-1 bg-gray-300 rounded-full mb-2" />
           <span className="text-sm font-medium text-gray-700">
-            {isOpen ? "Kéo xuống để đóng" : "Kéo lên để xem danh sách"}
+            {isOpen ? "Click để đóng" : "Click để xem danh sách"}
           </span>
         </div>
 
