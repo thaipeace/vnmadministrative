@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { SelectedLocation } from "../types/administrative";
 import { SheetData } from "../types/sheet-data";
+import { LocationIcon } from "@/public/icon/location";
 
 interface InfoPanelProps {
   selectedLocation: SelectedLocation | null;
@@ -47,10 +48,7 @@ export default function InfoPanel({ selectedLocation, sheetData }: InfoPanelProp
       <div className="h-full flex items-center justify-center p-8 bg-gray-50/50">
         <div className="text-center">
           <div className="w-16 h-16 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-4 text-gray-400">
-            <svg className="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" />
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" />
-            </svg>
+            <LocationIcon className="w-8 h-8" />
           </div>
           <h3 className="text-gray-900 font-semibold">Chưa chọn địa điểm</h3>
           <p className="text-sm text-gray-500 mt-2 max-w-[240px] mx-auto leading-relaxed">Chọn một tỉnh hoặc xã trên bản đồ để xem dữ liệu diện tích cây trồng chi tiết.</p>
@@ -60,7 +58,7 @@ export default function InfoPanel({ selectedLocation, sheetData }: InfoPanelProp
   }
 
   return (
-    <div className="h-full flex flex-col bg-white">
+    <div className="h-full flex flex-col bg-white/50">
       {/* Scrollable Content */}
       <div className="flex-1 overflow-y-auto p-6 space-y-8">
         <div>
@@ -118,7 +116,7 @@ export default function InfoPanel({ selectedLocation, sheetData }: InfoPanelProp
       </div>
 
       {/* Footer Info */}
-      <div className="p-6 bg-gray-50/80 border-t border-gray-100 backdrop-blur-sm">
+      <div className="p-6 bg-gray-50/50 border-t border-gray-100">
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-3 text-[10px] text-gray-400 font-bold uppercase tracking-widest">
             <span className="relative flex h-2 w-2">

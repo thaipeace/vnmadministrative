@@ -35,9 +35,6 @@ function MapController({ provinceGeoJson, selectedLocation, onFeatureClick }: Ma
   const [currentProvinceLoaded, setCurrentProvinceLoaded] = useState<string | null>(null);
 
   useEffect(() => {
-    map.setMaxBounds(VIETNAM_BOUNDS);
-    map.setMinZoom(7);
-
     if (provinceGeoJson) {
       const geoJsonLayer = L.geoJSON(provinceGeoJson);
       const bounds = geoJsonLayer.getBounds();
@@ -159,39 +156,13 @@ interface VietnamMapProps {
 
 export default function VietnamMap({ selectedLocation, onFeatureClick }: VietnamMapProps) {
   const [geoJson, setGeoJson] = useState<any>(null);
-  const [maskPositions, setMaskPositions] = useState<L.LatLngExpression[][]>([]);
 
   useEffect(() => {
-    const outerBounds = [
-      [90, -180],
-      [90, 180],
-      [-90, 180],
-      [-90, -180],
-    ] as L.LatLngExpression[];
 
     fetch(PROVINCE_GEOJSON_URL)
       .then((res) => res.json())
       .then((data) => {
         setGeoJson(data);
-
-        const holes: L.LatLngExpression[][] = [];
-
-        data.features.forEach((feature: any) => {
-          const type = feature.geometry.type;
-          const coords = feature.geometry.coordinates;
-
-          if (type === "Polygon") {
-            const hole = coords[0].map((p: number[]) => [p[1], p[0]]);
-            holes.push(hole);
-          } else if (type === "MultiPolygon") {
-            coords.forEach((poly: any[]) => {
-              const hole = poly[0].map((p: number[]) => [p[1], p[0]]);
-              holes.push(hole);
-            });
-          }
-        });
-
-        setMaskPositions([outerBounds, ...holes]);
       })
       .catch((err) => console.error("Failed to load map data", err));
   }, []);
@@ -199,7 +170,7 @@ export default function VietnamMap({ selectedLocation, onFeatureClick }: Vietnam
   const onEachFeature = (feature: any, layer: L.Layer) => {
     layer.on({
       click: (e) => {
-        L.DomEvent.stopPropagation(e);
+        // L.DomEvent.stopPropagation(e);
         const props = feature.properties;
         onFeatureClick({
           type: "province",
@@ -227,16 +198,16 @@ export default function VietnamMap({ selectedLocation, onFeatureClick }: Vietnam
   };
 
   return (
-    <div className="w-full h-full relative bg-[#1a1a1a]">
+    <div className="w-full h-full relative">
       <MapContainer
         center={[10.8231, 106.6297]}
-        zoom={7}
-        style={{ width: "100%", height: "100%", backgroundColor: "#1a1a1a" }}
+        zoom={6}
+        maxZoom={14}
+        minZoom={6}
+        style={{ width: "100%", height: "100%" }}
         scrollWheelZoom={true}
         zoomControl={false}
         attributionControl={false}
-        maxBounds={VIETNAM_BOUNDS}
-        maxBoundsViscosity={1.0}
       >
         <MapController
           provinceGeoJson={geoJson}
@@ -279,17 +250,6 @@ export default function VietnamMap({ selectedLocation, onFeatureClick }: Vietnam
           />
         )}
 
-        {maskPositions.length > 0 && (
-          <Polygon
-            positions={maskPositions}
-            pathOptions={{
-              color: "transparent",
-              fillColor: "#ffffff",
-              fillOpacity: 1.0,
-              interactive: false,
-            }}
-          />
-        )}
       </MapContainer>
     </div>
   );

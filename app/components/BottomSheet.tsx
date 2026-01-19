@@ -1,38 +1,38 @@
 "use client";
 
-import { ReactNode, useState } from "react";
+import { ReactNode } from "react";
 
 interface BottomSheetProps {
+  isInfoOpened: boolean;
+  onToggle: (isOpen: boolean) => void;
   children: ReactNode;
 }
 
-export default function BottomSheet({ children }: BottomSheetProps) {
-  const [isOpen, setIsOpen] = useState(false);
-
+export default function BottomSheet({ isInfoOpened, onToggle, children }: BottomSheetProps) {
   return (
     <>
       {/* Backdrop */}
-      {isOpen && (
+      {isInfoOpened && (
         <div
-          className="fixed inset-0 bg-black bg-opacity-30 z-40 md:hidden"
-          onClick={() => setIsOpen(false)}
+          className="fixed inset-0 bg-black/50 z-40 md:hidden"
+          onClick={() => onToggle(false)}
         />
       )}
 
       {/* Bottom Sheet */}
       <div
-        className={`fixed bottom-0 left-0 right-0 bg-white rounded-t-2xl shadow-2xl z-50 md:hidden transition-transform duration-300 ${isOpen ? "translate-y-0" : "translate-y-[calc(100%-4rem)]"
+        className={`fixed bottom-0 left-0 right-0 bg-white/50 rounded-t-2xl shadow-2xl z-50 md:hidden transition-transform duration-300 ${isInfoOpened ? "translate-y-0" : "translate-y-[calc(100%-4rem)]"
           }`}
         style={{ maxHeight: "80vh" }}
       >
         {/* Handle Bar */}
         <div
           className="p-4 cursor-pointer flex flex-col items-center"
-          onClick={() => setIsOpen(!isOpen)}
+          onClick={() => onToggle(!isInfoOpened)}
         >
           <div className="w-12 h-1 bg-gray-300 rounded-full mb-2" />
           <span className="text-sm font-medium text-gray-700">
-            {isOpen ? "Click để đóng" : "Click để xem danh sách"}
+            {isInfoOpened ? "Click để đóng" : "Click để xem danh sách"}
           </span>
         </div>
 

@@ -53,6 +53,7 @@ export default function Home() {
   const [selectedLocation, setSelectedLocation] = useState<SelectedLocation | null>(null);
   const [sheetData, setSheetData] = useState<SheetData[]>([]);
   const [isMobileInfoOpen, setIsMobileInfoOpen] = useState(false);
+  const [isBottomSheetOpen, setIsBottomSheetOpen] = useState(false);
   const [isOpenInfoPanel, setIsOpenInfoPanel] = useState(false);
 
   // Fetch Sheet Data
@@ -100,6 +101,7 @@ export default function Home() {
     setSelectedLocation(location);
     if (typeof window !== "undefined" && window.innerWidth < 768) {
       setIsMobileInfoOpen(true);
+      setIsBottomSheetOpen(true);
     }
   };
 
@@ -107,6 +109,7 @@ export default function Home() {
     setSelectedLocation(location);
     if (typeof window !== "undefined" && window.innerWidth < 768) {
       setIsMobileInfoOpen(true);
+      setIsBottomSheetOpen(true);
     }
   };
 
@@ -135,7 +138,7 @@ export default function Home() {
         </div>
 
         {/* RIGHT: Desktop Info Panel Sidebar */}
-        {selectedLocation && isOpenInfoPanel && (
+        {isOpenInfoPanel && (
           <div className="hidden md:block w-[400px] h-full overflow-hidden border-l border-gray-100 bg-white z-20 shadow-[-10px_0_30px_rgba(0,0,0,0.05)] animate-in slide-in-from-right duration-300">
             <button
               onClick={() => setIsOpenInfoPanel(false)}
@@ -152,7 +155,7 @@ export default function Home() {
 
         {/* MOBILE: Bottom Sheet List */}
         <div className="md:hidden">
-          <BottomSheet>
+          <BottomSheet isInfoOpened={isBottomSheetOpen} onToggle={setIsBottomSheetOpen}>
             <LocationList
               provinces={provinces}
               selectedLocation={selectedLocation}
@@ -164,7 +167,7 @@ export default function Home() {
           {isMobileInfoOpen && selectedLocation && (
             <div className="fixed inset-0 z-[100] flex items-end sm:items-center justify-center p-0">
               <div
-                className="absolute inset-0 bg-black/60 backdrop-blur-sm"
+                className="absolute inset-0 bg-black/50"
                 onClick={() => setIsMobileInfoOpen(false)}
               />
 

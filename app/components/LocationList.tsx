@@ -1,7 +1,8 @@
 "use client";
 
 import { Province, SelectedLocation } from "../types/administrative";
-import { useState } from "react";
+import { useState, useEffect, useRef } from "react";
+import { ChevronIcon } from "@/public/icon/chevron";
 
 interface LocationListProps {
   provinces: Province[];
@@ -15,6 +16,25 @@ export default function LocationList({
   onLocationClick,
 }: LocationListProps) {
   const [expandedProvince, setExpandedProvince] = useState<string | null>(null);
+  const listRef = useRef<HTMLDivElement>(null);
+  const provinceRefs = useRef<{ [key: string]: HTMLDivElement | null }>({});
+
+  useEffect(() => {
+    if (selectedLocation?.provinceCode) {
+      setExpandedProvince(selectedLocation.provinceCode);
+
+      // Use requestAnimationFrame or setTimeout to ensure the DOM has updated (expanded) before scrolling
+      setTimeout(() => {
+        const provinceElement = provinceRefs.current[selectedLocation.provinceCode];
+        if (provinceElement) {
+          provinceElement.scrollIntoView({
+            behavior: "smooth",
+            block: "start",
+          });
+        }
+      }, 100);
+    }
+  }, [selectedLocation]);
 
   const isActive = (
     type: "province" | "ward",
@@ -36,8 +56,8 @@ export default function LocationList({
   };
 
   return (
-    <div className="h-full overflow-y-auto bg-white">
-      <div className="p-4 border-b sticky top-0 bg-white z-10">
+    <div className="h-full overflow-y-auto bg-white/50">
+      <div className="p-4 border-b sticky top-0 z-10 md:bg-white bg-none">
         <h2 className="text-lg font-bold text-gray-800">Danh sách địa phương</h2>
         <p className="text-xs text-gray-500 mt-1">
           {provinces.length} tỉnh/thành • {provinces.reduce((sum, p) => sum + p.wards.length, 0)} xã/phường
@@ -49,56 +69,59 @@ export default function LocationList({
           <div key={province.code} className="border-b">
             {/* Province Level */}
             <div
-              className={`p-3 cursor-pointer hover:bg-blue-50 transition-colors ${isActive("province", province.code)
-                  ? "bg-blue-100 border-l-4 border-blue-600 font-semibold"
-                  : ""
-                }`}
-              onClick={() => {
-                onLocationClick({
-                  type: "province",
-                  provinceCode: province.code,
-                  name: province.name,
-                });
-                setExpandedProvince(
-                  expandedProvince === province.code ? null : province.code
-                );
+              ref={(el) => {
+                provinceRefs.current[province.code] = el;
               }}
+              className={`flex items-stretch cursor-pointer hover:bg-blue-50 transition-colors ${isActive("province", province.code)
+                ? "bg-blue-100 border-l-4 border-blue-600 font-semibold"
+                : ""
+                }`}
             >
-              <div className="flex items-center justify-between">
-                <div className="flex-1">
-                  <span className="text-sm font-medium text-gray-900">
-                    {province.name}
-                  </span>
-                  <span className="ml-2 text-xs text-gray-500">
-                    ({province.wards.length} xã/phường)
-                  </span>
-                </div>
-                <svg
-                  className={`w-4 h-4 transition-transform ${expandedProvince === province.code ? "rotate-90" : ""
+              {/* Province Info - Click to select */}
+              <div
+                className="flex-1 p-3"
+                onClick={() => {
+                  onLocationClick({
+                    type: "province",
+                    provinceCode: province.code,
+                    name: province.name,
+                  });
+                }}
+              >
+                <span className="text-sm font-medium text-gray-900">
+                  {province.name}
+                </span>
+                <span className="ml-2 text-xs text-gray-500">
+                  ({province.wards.length})
+                </span>
+              </div>
+
+              {/* Caret Icon - Click to toggle wards */}
+              <div
+                className="px-4 flex items-center justify-center border-l border-black/5 hover:bg-black/5 transition-colors"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  setExpandedProvince(
+                    expandedProvince === province.code ? null : province.code
+                  );
+                }}
+              >
+                <ChevronIcon
+                  className={`w-4 h-4 text-gray-400 transition-transform ${expandedProvince === province.code ? "rotate-90" : ""
                     }`}
-                  fill="none"
-                  stroke="currentColor"
-                  viewBox="0 0 24 24"
-                >
-                  <path
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    strokeWidth={2}
-                    d="M9 5l7 7-7 7"
-                  />
-                </svg>
+                />
               </div>
             </div>
 
             {/* Wards - Collapsed/Expanded */}
             {expandedProvince === province.code && (
-              <div className="bg-gray-50 max-h-96 overflow-y-auto">
+              <div className="max-h-96 overflow-y-auto">
                 {province.wards.map((ward) => (
                   <div
                     key={ward.code}
                     className={`pl-8 pr-3 py-2 cursor-pointer hover:bg-blue-50 transition-colors ${isActive("ward", province.code, ward.code)
-                        ? "bg-blue-50 border-l-4 border-blue-400 font-medium"
-                        : ""
+                      ? "bg-blue-50 border-l-4 border-blue-400 font-medium"
+                      : ""
                       }`}
                     onClick={(e) => {
                       e.stopPropagation();
