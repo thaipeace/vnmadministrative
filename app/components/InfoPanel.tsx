@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { SelectedLocation } from "../types/administrative";
 import { SheetData } from "../types/sheet-data";
+import { normalizeLocationName } from "../utils/location";
 import { LocationIcon } from "@/public/icon/location";
 
 interface InfoPanelProps {
@@ -134,23 +135,3 @@ export default function InfoPanel({ selectedLocation, sheetData }: InfoPanelProp
   );
 }
 
-/**
- * Normalizes location names for robust matching.
- * - Lowercase
- * - Remove Vietnamese accents
- * - Strip prefixes: Tỉnh, Thành phố, Quận, Huyện, Xã, Phường
- * - Remove extra spaces and special characters
- */
-function normalizeLocationName(name: string): string {
-  if (!name) return "";
-
-  return name
-    .toLowerCase()
-    .normalize("NFD")
-    .replace(/[\u0300-\u036f]/g, "") // Remove accents
-    .replace(/đ/g, "d")
-    .replace(/^(tinh|thanh pho|quan|huyen|xa|phuong)\s+/i, "") // Remove common prefixes
-    .replace(/\s+/g, "") // Remove all spaces
-    .replace(/[^a-z0-9]/g, "") // Remove special characters
-    .trim();
-}

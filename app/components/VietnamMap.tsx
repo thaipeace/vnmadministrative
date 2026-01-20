@@ -18,30 +18,29 @@ L.Icon.Default.mergeOptions({
 const PROVINCE_GEOJSON_URL = "/data/vietnam-provinces.json";
 
 const VIETNAM_BOUNDS: L.LatLngBoundsExpression = [
-  [6.0, 101.5],
-  [24.5, 119.0],
+  [8.0, 101.5],
+  [23.5, 114.0],
 ];
 
 interface MapControllerProps {
   provinceGeoJson: any;
   selectedLocation: SelectedLocation | null;
   onFeatureClick: (location: SelectedLocation) => void;
+  highlightedProvinceCodes?: string[];
 }
 
-function MapController({ provinceGeoJson, selectedLocation, onFeatureClick }: MapControllerProps) {
+function MapController({ provinceGeoJson, selectedLocation, onFeatureClick, highlightedProvinceCodes = [] }: MapControllerProps) {
   const map = useMap();
   const highlightLayerRef = useRef<L.LayerGroup | null>(null);
   const [wardGeoJson, setWardGeoJson] = useState<any>(null);
   const [currentProvinceLoaded, setCurrentProvinceLoaded] = useState<string | null>(null);
 
+  // Initial view is handled by MapContainer center and zoom
+  // We avoid fitBounds here to prevent Jumping back to full extent
   useEffect(() => {
-    if (provinceGeoJson) {
-      const geoJsonLayer = L.geoJSON(provinceGeoJson);
-      const bounds = geoJsonLayer.getBounds();
-      map.fitBounds(bounds, { padding: [10, 10] });
-    } else {
-      map.fitBounds(VIETNAM_BOUNDS);
-    }
+    // Use our custom mainland-focused bounds instead of full GeoJSON bounds
+    // to keep the focus on the mainland while still allowing fitBounds to work.
+    map.fitBounds(VIETNAM_BOUNDS, { padding: [10, 10] });
   }, [provinceGeoJson, map]);
 
   // Load ward GeoJSON when a province is selected
@@ -109,6 +108,36 @@ function MapController({ provinceGeoJson, selectedLocation, onFeatureClick }: Ma
     }
   }, [selectedLocation, provinceGeoJson, wardGeoJson, map]);
 
+  // Handle highlighted provinces (from filter)
+  useEffect(() => {
+    if (!provinceGeoJson || !map) return;
+
+    const group = L.layerGroup();
+
+    if (highlightedProvinceCodes.length > 0) {
+      highlightedProvinceCodes.forEach(code => {
+        const feature = provinceGeoJson.features.find((f: any) => f.properties.code === code);
+        if (feature) {
+          L.geoJSON(feature, {
+            style: {
+              color: "#10B981", // Green for filtered results
+              weight: 2,
+              fillOpacity: 0.4,
+              fillColor: "#10B981",
+            },
+            interactive: false
+          }).addTo(group);
+        }
+      });
+
+      group.addTo(map);
+    }
+
+    return () => {
+      map.removeLayer(group);
+    };
+  }, [highlightedProvinceCodes, provinceGeoJson, map]);
+
   return (
     <>
       {/* Show ward borders of the selected province if available */}
@@ -152,9 +181,10 @@ function MapController({ provinceGeoJson, selectedLocation, onFeatureClick }: Ma
 interface VietnamMapProps {
   selectedLocation: SelectedLocation | null;
   onFeatureClick: (location: SelectedLocation) => void;
+  highlightedProvinceCodes?: string[];
 }
 
-export default function VietnamMap({ selectedLocation, onFeatureClick }: VietnamMapProps) {
+export default function VietnamMap({ selectedLocation, onFeatureClick, highlightedProvinceCodes = [] }: VietnamMapProps) {
   const [geoJson, setGeoJson] = useState<any>(null);
 
   useEffect(() => {
@@ -200,7 +230,7 @@ export default function VietnamMap({ selectedLocation, onFeatureClick }: Vietnam
   return (
     <div className="w-full h-full relative">
       <MapContainer
-        center={[10.8231, 106.6297]}
+        center={[16.0, 108.0]}
         zoom={6}
         maxZoom={14}
         minZoom={6}
@@ -213,6 +243,7 @@ export default function VietnamMap({ selectedLocation, onFeatureClick }: Vietnam
           provinceGeoJson={geoJson}
           selectedLocation={selectedLocation}
           onFeatureClick={onFeatureClick}
+          highlightedProvinceCodes={highlightedProvinceCodes}
         />
 
         <LayersControl position="topright">

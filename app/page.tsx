@@ -6,47 +6,17 @@ import { Province, SelectedLocation } from "./types/administrative";
 import LocationList from "./components/LocationList";
 import BottomSheet from "./components/BottomSheet";
 import InfoPanel from "./components/InfoPanel";
+import CropFilter from "./components/CropFilter";
 import { SheetData } from "./types/sheet-data";
 import { CloseIcon } from "@/public/icon/close";
+import { parseCSV } from "./utils/csv";
+import { normalizeLocationName } from "./utils/location";
 
 const VietnamMap = dynamic(() => import("./components/VietnamMap"), {
   ssr: false,
   loading: () => <div className="text-white">Loading Map...</div>,
 });
 
-// CSV Parser for the specific structure: starts at row 7
-function parseCSV(text: string): SheetData[] {
-  const lines = text.trim().split(/\r?\n/);
-  // Find the header row (contains "Tỉnh mới" and "Xã mới")
-  const headerIndex = lines.findIndex(line => line.includes("Tỉnh mới") && line.includes("Xã mới"));
-  if (headerIndex === -1 || headerIndex >= lines.length - 1) return [];
-
-  const headers = lines[headerIndex].split(",").map(h => h.trim().replace(/^"|"$/g, ''));
-
-  return lines.slice(headerIndex + 1).map(line => {
-    // Handling commas inside quotes properly (e.g., "1,320")
-    const values: string[] = [];
-    let current = "";
-    let inQuotes = false;
-    for (let i = 0; i < line.length; i++) {
-      const char = line[i];
-      if (char === '"') inQuotes = !inQuotes;
-      else if (char === ',' && !inQuotes) {
-        values.push(current.trim().replace(/^"|"$/g, ''));
-        current = "";
-      } else {
-        current += char;
-      }
-    }
-    values.push(current.trim().replace(/^"|"$/g, ''));
-
-    const entry: SheetData = {};
-    headers.forEach((h, i) => {
-      if (h) entry[h] = values[i] || "";
-    });
-    return entry;
-  });
-}
 
 export default function Home() {
   const [provinces, setProvinces] = useState<Province[]>([]);
@@ -55,6 +25,7 @@ export default function Home() {
   const [isMobileInfoOpen, setIsMobileInfoOpen] = useState(false);
   const [isBottomSheetOpen, setIsBottomSheetOpen] = useState(false);
   const [isOpenInfoPanel, setIsOpenInfoPanel] = useState(false);
+  const [selectedCrops, setSelectedCrops] = useState<string[]>([]);
 
   // Fetch Sheet Data
   useEffect(() => {
@@ -117,16 +88,55 @@ export default function Home() {
     setIsOpenInfoPanel(!!selectedLocation);
   }, [selectedLocation]);
 
+  // Extract unique crops
+  const availableCrops = Array.from(new Set(sheetData.map(item => item["Cây trồng"]).filter(Boolean))).sort();
+
+  // Get province codes that grow selected crops
+  const highlightedProvinceCodes = selectedCrops.length > 0
+    ? Array.from(new Set(sheetData
+      .filter(item => selectedCrops.includes(item["Cây trồng"]))
+      .map(item => {
+        // Robust matching for province names to get codes
+        const rowProv = normalizeLocationName(item["Tỉnh mới"] || "");
+        const matchingProv = provinces.find(p => normalizeLocationName(p.name) === rowProv);
+        return matchingProv?.code;
+      })
+      .filter(Boolean) as string[]))
+    : [];
+
+  const handleCropToggle = (crop: string) => {
+    setSelectedCrops(prev =>
+      prev.includes(crop) ? prev.filter(c => c !== crop) : [...prev, crop]
+    );
+  };
+
   return (
     <main className="flex items-center justify-center min-h-screen bg-black overflow-hidden font-sans">
       <div className="relative w-full h-screen flex">
         {/* LEFT: Desktop Sidebar - Location List */}
-        <div className="hidden md:block w-72 h-full overflow-hidden border-r border-gray-100 bg-white z-20">
-          <LocationList
-            provinces={provinces}
-            selectedLocation={selectedLocation}
-            onLocationClick={handleLocationClick}
-          />
+        <div className="hidden md:flex md:flex-col w-80 h-full border-r border-gray-100 bg-white z-20  shrink-0">
+          <div className="p-4 border-b bg-white">
+            <h3 className="text-sm font-bold text-gray-700 mb-3 uppercase tracking-wider">Lọc theo cây trồng</h3>
+            <CropFilter
+              availableCrops={availableCrops}
+              selectedCrops={selectedCrops}
+              onCropToggle={handleCropToggle}
+              onClearAll={() => setSelectedCrops([])}
+            />
+            {selectedCrops.length > 0 && (
+              <p className="text-[10px] text-blue-500 font-bold mt-3 italic bg-blue-50/50 p-2 rounded-lg border border-blue-100/50">
+                Đang hiển thị {highlightedProvinceCodes.length} tỉnh có trồng các loại cây này
+              </p>
+            )}
+          </div>
+          <div className="flex-1 overflow-hidden">
+            <LocationList
+              provinces={provinces}
+              selectedLocation={selectedLocation}
+              onLocationClick={handleLocationClick}
+              highlightedProvinceCodes={highlightedProvinceCodes}
+            />
+          </div>
         </div>
 
         {/* CENTER: Map Container */}
@@ -134,12 +144,13 @@ export default function Home() {
           <VietnamMap
             selectedLocation={selectedLocation}
             onFeatureClick={handleFeatureClick}
+            highlightedProvinceCodes={highlightedProvinceCodes}
           />
         </div>
 
         {/* RIGHT: Desktop Info Panel Sidebar */}
         {isOpenInfoPanel && (
-          <div className="hidden md:block w-[400px] h-full overflow-hidden border-l border-gray-100 bg-white z-20 shadow-[-10px_0_30px_rgba(0,0,0,0.05)] animate-in slide-in-from-right duration-300">
+          <div className="hidden md:block w-[400px] h-full overflow-hidden border-l border-gray-100 bg-white z-20 shadow-[-10px_0_30px_rgba(0,0,0,0.05)] animate-in slide-in-from-right duration-300 shrink-0">
             <button
               onClick={() => setIsOpenInfoPanel(false)}
               className="p-2.5 bg-gray-50 hover:bg-gray-100 text-gray-500 rounded-full transition-colors"
@@ -156,10 +167,20 @@ export default function Home() {
         {/* MOBILE: Bottom Sheet List */}
         <div className="md:hidden">
           <BottomSheet isInfoOpened={isBottomSheetOpen} onToggle={setIsBottomSheetOpen}>
+            <div className="px-4 py-4 border-b bg-gray-50/50">
+              <h3 className="text-xs font-bold text-gray-500 mb-3 uppercase tracking-widest">Lọc cây trồng</h3>
+              <CropFilter
+                availableCrops={availableCrops}
+                selectedCrops={selectedCrops}
+                onCropToggle={handleCropToggle}
+                onClearAll={() => setSelectedCrops([])}
+              />
+            </div>
             <LocationList
               provinces={provinces}
               selectedLocation={selectedLocation}
               onLocationClick={handleLocationClick}
+              highlightedProvinceCodes={highlightedProvinceCodes}
             />
           </BottomSheet>
 
@@ -197,3 +218,4 @@ export default function Home() {
     </main>
   );
 }
+
