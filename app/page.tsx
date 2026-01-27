@@ -7,10 +7,10 @@ import LocationList from "./components/LocationList";
 import BottomSheet from "./components/BottomSheet";
 import InfoPanel from "./components/InfoPanel";
 import CropFilter from "./components/CropFilter";
-import { SheetData } from "./types/sheet-data";
+import { ProcessedLocationData, SheetResult } from "./types/sheet-data";
 import { CloseIcon } from "@/public/icon/close";
-import { parseCSV } from "./utils/csv";
 import { normalizeLocationName } from "./utils/location";
+import { parseGoogleSheetResponse } from "./utils/sheet-parser";
 
 const VietnamMap = dynamic(() => import("./components/VietnamMap"), {
   ssr: false,
@@ -21,7 +21,7 @@ const VietnamMap = dynamic(() => import("./components/VietnamMap"), {
 export default function Home() {
   const [provinces, setProvinces] = useState<Province[]>([]);
   const [selectedLocation, setSelectedLocation] = useState<SelectedLocation | null>(null);
-  const [sheetData, setSheetData] = useState<SheetData[]>([]);
+  const [sheetData, setSheetData] = useState<SheetResult>({ locations: [], productCatalog: {} });
   const [isMobileInfoOpen, setIsMobileInfoOpen] = useState(false);
   const [isBottomSheetOpen, setIsBottomSheetOpen] = useState(false);
   const [isOpenInfoPanel, setIsOpenInfoPanel] = useState(false);
@@ -29,16 +29,20 @@ export default function Home() {
 
   // Fetch Sheet Data
   useEffect(() => {
-    const SHEET_CSV_URL = "https://docs.google.com/spreadsheets/d/1EHrYzgmECJhLLhjCwfOA-c42nh796Xxe/export?format=csv&gid=1882977395";
+    const SHEET_ID = "14hg74J-k4Wlzi3EulkouXfefWzBcuJQ89J70b-0wgAQ";
+    const API_KEY = "AIzaSyBhjziOYoLoj76NCoSMAd7GZMww5vK1agc";
+    const RANGE = "final!A1:BFI1043";
 
-    fetch(SHEET_CSV_URL)
+    fetch(`https://sheets.googleapis.com/v4/spreadsheets/${SHEET_ID}/values/${RANGE}?key=${API_KEY}`)
       .then(res => {
         if (!res.ok) throw new Error("Auth/Network error");
-        return res.text();
+        return res.json();
       })
-      .then(text => {
-        const parsed = parseCSV(text);
-        setSheetData(parsed);
+      .then(data => {
+        if (data.values) {
+          const processed = parseGoogleSheetResponse(data.values);
+          setSheetData(processed);
+        }
       })
       .catch(err => console.error("Error loading sheet data:", err));
   }, []);
@@ -53,14 +57,16 @@ export default function Home() {
           code: String(province.code),
           danSo: province.danSo,
           dienTich: province.dienTich,
-          wards: (province.wards || []).map((ward: any) => ({
-            name: ward.name,
-            code: String(ward.code),
-            provinceCode: String(ward.provinceCode),
-            danSo: ward.danSo,
-            dienTich: ward.dienTich,
-          })),
-        }));
+          wards: (province.wards || [])
+            .map((ward: any) => ({
+              name: ward.name,
+              code: String(ward.code),
+              provinceCode: String(ward.provinceCode),
+              danSo: ward.danSo,
+              dienTich: ward.dienTich,
+            }))
+            .sort((a: any, b: any) => a.name.localeCompare(b.name, "vi")),
+        })).sort((a: Province, b: Province) => a.name.localeCompare(b.name, "vi"));
         setProvinces(transformedProvinces);
       })
       .catch((err) => {
@@ -89,15 +95,15 @@ export default function Home() {
   }, [selectedLocation]);
 
   // Extract unique crops
-  const availableCrops = Array.from(new Set(sheetData.map(item => item["Cây trồng"]).filter(Boolean))).sort();
+  const availableCrops = Array.from(new Set(sheetData.locations.flatMap(item => item.crops.map(c => c.name)).filter(Boolean))).sort();
 
   // Get province codes that grow selected crops
   const highlightedProvinceCodes = selectedCrops.length > 0
-    ? Array.from(new Set(sheetData
-      .filter(item => selectedCrops.includes(item["Cây trồng"]))
+    ? Array.from(new Set(sheetData.locations
+      .filter(item => item.crops.some(c => selectedCrops.includes(c.name)))
       .map(item => {
         // Robust matching for province names to get codes
-        const rowProv = normalizeLocationName(item["Tỉnh mới"] || "");
+        const rowProv = normalizeLocationName(item.province || "");
         const matchingProv = provinces.find(p => normalizeLocationName(p.name) === rowProv);
         return matchingProv?.code;
       })
@@ -159,7 +165,9 @@ export default function Home() {
             </button>
             <InfoPanel
               selectedLocation={selectedLocation}
-              sheetData={sheetData}
+              sheetData={sheetData.locations}
+              provinces={provinces}
+              productCatalog={sheetData.productCatalog}
             />
           </div>
         )}
@@ -208,7 +216,12 @@ export default function Home() {
                   </button>
                 </div>
                 <div className="flex-1 overflow-hidden">
-                  <InfoPanel selectedLocation={selectedLocation} sheetData={sheetData} />
+                  <InfoPanel
+                    selectedLocation={selectedLocation}
+                    sheetData={sheetData.locations}
+                    provinces={provinces}
+                    productCatalog={sheetData.productCatalog}
+                  />
                 </div>
               </div>
             </div>

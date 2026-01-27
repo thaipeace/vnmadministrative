@@ -1,48 +1,47 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { SelectedLocation } from "../types/administrative";
-import { SheetData } from "../types/sheet-data";
+import { Province, SelectedLocation } from "../types/administrative";
+import { ProcessedLocationData, CropData, StageData, MedicineData } from "../types/sheet-data";
 import { normalizeLocationName } from "../utils/location";
 import { LocationIcon } from "@/public/icon/location";
+import { getGoogleDriveDirectLink } from "../utils/drive";
 
 interface InfoPanelProps {
   selectedLocation: SelectedLocation | null;
-  sheetData: SheetData[];
+  sheetData: ProcessedLocationData[];
+  provinces: Province[];
+  productCatalog: Record<string, string>;
 }
 
-export default function InfoPanel({ selectedLocation, sheetData }: InfoPanelProps) {
-  const [matches, setMatches] = useState<SheetData[]>([]);
+export default function InfoPanel({ selectedLocation, sheetData, provinces, productCatalog }: InfoPanelProps) {
+  const [match, setMatch] = useState<ProcessedLocationData | null>(null);
 
   useEffect(() => {
     if (!selectedLocation || !sheetData.length) {
-      setMatches([]);
+      setMatch(null);
       return;
     }
 
     const selectedNameNormalized = normalizeLocationName(selectedLocation.name);
+    const parentProvince = provinces.find(p => p.code === selectedLocation.provinceCode);
+    const provinceNameNormalized = parentProvince ? normalizeLocationName(parentProvince.name) : "";
 
-    const filtered = sheetData.filter((row) => {
-      const rowProvinceRaw = row["Tỉnh mới"] || "";
-      const rowWardRaw = row["Xã mới"] || "";
-
-      const rowProvince = normalizeLocationName(rowProvinceRaw);
-      const rowWard = normalizeLocationName(rowWardRaw);
+    const found = sheetData.find((row) => {
+      const rowProvince = normalizeLocationName(row.province);
+      const rowWard = normalizeLocationName(row.ward);
 
       if (selectedLocation.type === "province") {
-        // Match summarized data or any data for this province
-        // Note: Some rows might have "All" in Xã mới for province-level data
-        return rowProvince === selectedNameNormalized;
+        // Match province level data
+        return rowProvince === selectedNameNormalized &&
+          (rowWard === "all" || rowWard === "tongcong" || !rowWard);
       } else {
-        // Ward-level match
-        // We match Xã mới. To be precise, we should also check if it belongs to the right province 
-        // (but selectedLocation only has provinceCode, not name. We can resolve it if needed)
-        return rowWard === selectedNameNormalized;
+        // Ward-level match - must also match province to be safe
+        return rowWard === selectedNameNormalized && rowProvince === provinceNameNormalized;
       }
     });
-
-    setMatches(filtered);
-  }, [selectedLocation, sheetData]);
+    setMatch(found || null);
+  }, [selectedLocation, sheetData, provinces]);
 
   if (!selectedLocation) {
     return (
@@ -59,79 +58,135 @@ export default function InfoPanel({ selectedLocation, sheetData }: InfoPanelProp
   }
 
   return (
-    <div className="h-full flex flex-col bg-white/50">
-      {/* Scrollable Content */}
-      <div className="flex-1 overflow-y-auto p-6 space-y-8">
-        <div>
-          <div className="inline-flex items-center gap-2 px-2.5 py-1 bg-blue-50 text-blue-700 text-[10px] font-bold uppercase tracking-widest rounded-md mb-3">
-            <span className="w-1.5 h-1.5 bg-blue-600 rounded-full"></span>
-            Dữ liệu cây trồng
-          </div>
-          <h2 className="text-3xl font-extrabold text-gray-900 tracking-tight">{selectedLocation.name}</h2>
-          <p className="text-sm text-gray-400 mt-1 font-medium">Cập nhật: 20.12.2025</p>
+    <div className="h-full flex flex-col bg-white">
+      {/* Header */}
+      <div className="p-6 border-b border-gray-100 bg-white sticky top-0 z-10">
+        <div className="inline-flex items-center gap-2 px-2.5 py-1 bg-blue-50 text-blue-700 text-[10px] font-bold uppercase tracking-widest rounded-md mb-3">
+          <span className="w-1.5 h-1.5 bg-blue-600 rounded-full"></span>
+          Dữ liệu nông nghiệp
         </div>
+        <h2 className="text-2xl font-black text-gray-900 tracking-tight leading-tight">{selectedLocation.name}</h2>
+        <div className="flex items-center gap-4 mt-3">
+          <div>
+            <span className="block text-[9px] text-gray-400 font-bold uppercase tracking-widest mb-0.5">Tổng diện tích thực tế</span>
+            <div className="flex items-baseline gap-1">
+              <span className="text-lg font-bold text-gray-900">{match?.totalArea || "---"}</span>
+              <span className="text-[10px] font-bold text-gray-400">ha</span>
+            </div>
+          </div>
+          <div className="w-px h-8 bg-gray-100"></div>
+          <div>
+            <span className="block text-[9px] text-gray-400 font-bold uppercase tracking-widest mb-0.5">Cơ hội thị trường</span>
+            <div className="flex items-baseline gap-1">
+              <span className="text-lg font-bold text-blue-600">{match?.opportunity || "---"}</span>
+            </div>
+          </div>
+        </div>
+      </div>
 
-        {matches.length > 0 ? (
-          <div className="grid gap-5">
-            {matches.map((item, index) => (
-              <div key={index} className="group relative bg-white border border-gray-100 rounded-2xl p-6 shadow-sm hover:shadow-xl hover:-translate-y-1 transition-all duration-300">
-                <div className="flex justify-between items-start mb-5">
-                  <div className="px-3 py-1.5 bg-green-50 text-green-700 text-[10px] font-bold rounded-lg uppercase tracking-wider">
-                    {item["Phân loại cây trồng"] || "Cây trồng"}
-                  </div>
+      {/* Scrollable Content */}
+      <div className="flex-1 overflow-y-auto p-6 space-y-8 bg-gray-50/30">
+        {match && match.crops.length > 0 ? (
+          <div className="space-y-10">
+            {match.crops.map((crop: CropData, cIdx: number) => (
+              <div key={cIdx} className="space-y-6">
+                {/* Crop Header */}
+                <div className="flex items-center justify-between border-b border-gray-200 pb-2">
+                  <h3 className="text-xl font-black text-green-700 flex items-center gap-2">
+                    <span className="text-2xl">🌱</span> {crop.name}
+                  </h3>
                   <div className="text-right">
-                    <span className="block text-[9px] text-gray-400 font-bold uppercase tracking-widest mb-1">Diện tích</span>
-                    <div className="flex items-baseline gap-1">
-                      <span className="text-2xl font-black text-gray-900">{item["Tổng diện tích"]}</span>
-                      <span className="text-xs font-bold text-gray-400">ha</span>
-                    </div>
+                    <span className="text-[10px] text-gray-400 font-bold uppercase">Diện tích cây trồng</span>
+                    <div className="text-sm font-bold text-gray-900">{crop.totalArea} ha</div>
                   </div>
                 </div>
 
-                <h3 className="text-xl font-bold text-gray-800 mb-6 leading-tight group-hover:text-blue-600 transition-colors">
-                  {item["Cây trồng"]}
-                </h3>
+                {/* Stages */}
+                <div className="space-y-8">
+                  {crop.stages.map((stage: StageData, sIdx: number) => (
+                    <div key={sIdx} className="space-y-4">
+                      <div className="flex items-center justify-between">
+                        <h4 className="text-sm font-bold text-gray-800 bg-white border border-gray-100 px-3 py-1.5 rounded-lg shadow-sm">
+                          {stage.name || "Giai đoạn chung"}
+                        </h4>
+                        <div className="flex gap-4 text-[10px]">
+                          {stage.totalArea && stage.totalArea !== "0" && (
+                            <div className="text-right">
+                              <span className="text-gray-400 font-bold uppercase block">Diện tích</span>
+                              <span className="font-bold text-gray-700">{stage.totalArea} ha</span>
+                            </div>
+                          )}
+                          {stage.opportunity && stage.opportunity !== "0" && (
+                            <div className="text-right">
+                              <span className="text-gray-400 font-bold uppercase block">Cơ hội</span>
+                              <span className="font-bold text-blue-600">{stage.opportunity}</span>
+                            </div>
+                          )}
+                        </div>
+                      </div>
 
-                <div className="grid grid-cols-2 gap-6 pt-5 border-t border-gray-50">
-                  <div>
-                    <span className="block text-[9px] text-gray-400 font-bold uppercase tracking-widest mb-1.5">Khu vực</span>
-                    <span className="text-xs font-semibold text-gray-600 bg-gray-50 px-2 py-1 rounded">{item["Khu vực"] || "N/A"}</span>
-                  </div>
-                  <div>
-                    <span className="block text-[9px] text-gray-400 font-bold uppercase tracking-widest mb-1.5">Vùng</span>
-                    <span className="text-xs font-semibold text-gray-600 bg-gray-50 px-2 py-1 rounded">{item["Vùng"] || "N/A"}</span>
-                  </div>
+                      {/* Products/Medicines Grid */}
+                      <div className="grid grid-cols-1 gap-3">
+                        {stage.medicines.map((med: MedicineData, mIdx: number) => {
+                          const rawUrl = productCatalog[med.name] || med.imageUrl;
+                          const directUrl = getGoogleDriveDirectLink(rawUrl);
+
+                          return (
+                            <div key={mIdx} className="flex items-center gap-4 bg-white p-3 rounded-xl border border-gray-100 shadow-sm hover:shadow-md transition-shadow">
+                              {directUrl ? (
+                                <div className="w-16 h-16 rounded-lg overflow-hidden bg-gray-50 flex-shrink-0 border border-gray-50">
+                                  <img
+                                    src={directUrl}
+                                    alt={med.name}
+                                    className="w-full h-full object-contain"
+                                    onError={(e) => {
+                                      (e.target as HTMLImageElement).src = "https://placehold.co/100x100?text=No+Image";
+                                    }}
+                                  />
+                                </div>
+                              ) : (
+                                <div className="w-16 h-16 rounded-lg bg-gray-100 flex items-center justify-center text-xl flex-shrink-0">
+                                  💊
+                                </div>
+                              )}
+                              <div className="flex-1 min-w-0">
+                                <div className="text-xs font-bold text-gray-800 truncate">{med.name}</div>
+                                <div className="text-[10px] text-gray-500 mt-1 uppercase tracking-wider">Giá trị / Liều lượng</div>
+                                <div className="text-sm font-black text-blue-600">{med.value}</div>
+                              </div>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  ))}
                 </div>
               </div>
             ))}
           </div>
         ) : (
-          <div className="py-16 px-8 text-center bg-gray-50/50 rounded-[32px] border-2 border-dashed border-gray-100">
-            <div className="w-16 h-16 bg-white rounded-2xl shadow-sm flex items-center justify-center mx-auto mb-5 text-3xl">🌾</div>
-            <h4 className="text-gray-900 font-bold text-lg mb-2">Không tìm thấy dữ liệu</h4>
-            <p className="text-sm text-gray-500 leading-relaxed">
-              Hệ thống chưa tìm thấy thông tin cây trồng tương ứng cho <span className="font-bold text-gray-700">{selectedLocation.name}</span> trong tệp dữ liệu hiện tại.
+          <div className="py-16 px-8 text-center bg-white rounded-3xl border-2 border-dashed border-gray-200">
+            <div className="w-20 h-20 bg-gray-50 rounded-2xl flex items-center justify-center mx-auto mb-6 text-4xl">🌾</div>
+            <h4 className="text-gray-900 font-bold text-lg mb-2">Không tìm thấy dữ liệu cây trồng</h4>
+            <p className="text-sm text-gray-500 leading-relaxed max-w-[240px] mx-auto">
+              Hệ thống chưa tìm thấy thông tin chi tiết các loại thuốc và giai đoạn cho {selectedLocation.name} trong tệp dữ liệu hiện tại.
             </p>
           </div>
         )}
       </div>
 
       {/* Footer Info */}
-      <div className="p-6 bg-gray-50/50 border-t border-gray-100">
-        <div className="flex items-center justify-between">
-          <div className="flex items-center gap-3 text-[10px] text-gray-400 font-bold uppercase tracking-widest">
-            <span className="relative flex h-2 w-2">
-              <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-green-400 opacity-75"></span>
-              <span className="relative inline-flex rounded-full h-2 w-2 bg-green-500"></span>
-            </span>
-            Live Google Sheet
+      <div className="p-4 bg-white border-t border-gray-100">
+        <div className="flex items-center justify-between opacity-50">
+          <div className="flex items-center gap-2 text-[8px] text-gray-400 font-bold uppercase tracking-widest">
+            <span className="w-1.5 h-1.5 bg-green-500 rounded-full animate-pulse"></span>
+            Sheet: Final
           </div>
-          <div className="text-[10px] text-gray-300 font-medium italic">
-            v1.0.2 (2025)
+          <div className="text-[8px] text-gray-300 font-medium italic uppercase tracking-widest">
+            Admin Interaction v2.0
           </div>
         </div>
       </div>
     </div>
   );
 }
-

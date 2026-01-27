@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState, useRef } from "react";
-import { MapContainer, TileLayer, LayersControl, Polygon, GeoJSON, useMap } from "react-leaflet";
+import { MapContainer, TileLayer, LayersControl, GeoJSON, useMap } from "react-leaflet";
 import "leaflet/dist/leaflet.css";
 import L from "leaflet";
 import { SelectedLocation } from "../types/administrative";
@@ -234,6 +234,8 @@ export default function VietnamMap({ selectedLocation, onFeatureClick, highlight
         zoom={6}
         maxZoom={14}
         minZoom={6}
+        maxBounds={VIETNAM_BOUNDS}
+        maxBoundsViscosity={1.0}
         style={{ width: "100%", height: "100%" }}
         scrollWheelZoom={true}
         zoomControl={false}
