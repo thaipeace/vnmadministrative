@@ -1,0 +1,22 @@
+{
+    "name": "Bản đồ Nông nghiệp Việt Nam",
+    "short_name": "VN Agri Map",
+    "description": "Bản đồ thể hiện cây trồng và thuốc theo vùng miền",
+    "start_url": "/",
+    "display": "standalone",
+    "background_color": "#ffffff",
+    "theme_color": "#10B981",
+    "icons": [
+        {
+            "src": "/icon-512.png",
+            "sizes": "512x512",
+            "type": "image/png",
+            "purpose": "any maskable"
+        },
+        {
+            "src": "/icon-512.png",
+            "sizes": "192x192",
+            "type": "image/png"
+        }
+    ]
+}

@@ -24,3 +24,23 @@ body {
   color: var(--foreground);
   font-family: Arial, Helvetica, sans-serif;
 }
+
+/* Move Leaflet controls to the top-right */
+.leaflet-top.leaflet-right {
+  top: 12px !important;
+  right: 12px !important;
+}
+
+.leaflet-control-layers {
+  border-radius: 10px !important;
+  border: 1px solid rgba(0, 0, 0, 0.1) !important;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1) !important;
+  margin-right: 0 !important;
+  margin-top: 0 !important;
+}
+
+.leaflet-control-layers-toggle {
+  width: 40px !important;
+  height: 40px !important;
+  background-size: 20px 20px !important;
+}

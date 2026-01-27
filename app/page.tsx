@@ -11,6 +11,7 @@ import { ProcessedLocationData, SheetResult } from "./types/sheet-data";
 import { CloseIcon } from "@/public/icon/close";
 import { normalizeLocationName } from "./utils/location";
 import { parseGoogleSheetResponse } from "./utils/sheet-parser";
+import HamburgerMenu from "./components/HamburgerMenu";
 
 const VietnamMap = dynamic(() => import("./components/VietnamMap"), {
   ssr: false,
@@ -45,6 +46,16 @@ export default function Home() {
         }
       })
       .catch(err => console.error("Error loading sheet data:", err));
+
+    // Register Service Worker for PWA
+    if ("serviceWorker" in navigator) {
+      window.addEventListener("load", () => {
+        navigator.serviceWorker
+          .register("/sw.js")
+          .then((reg) => console.log("SW registered:", reg))
+          .catch((err) => console.error("SW registration failed:", err));
+      });
+    }
   }, []);
 
   useEffect(() => {
@@ -147,6 +158,7 @@ export default function Home() {
 
         {/* CENTER: Map Container */}
         <div className="flex-1 relative z-10">
+          <HamburgerMenu />
           <VietnamMap
             selectedLocation={selectedLocation}
             onFeatureClick={handleFeatureClick}
