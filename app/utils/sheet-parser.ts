@@ -1,11 +1,11 @@
-import { ProcessedLocationData, CropData, StageData, MedicineData, SheetResult } from "../types/sheet-data";
+import { ProcessedLocationData, CropData, StageData, MedicineData, SheetResult, ProductInfo } from "../types/sheet-data";
 
-export function parseGoogleSheetResponse(values: string[][]): SheetResult {
+export function parseGoogleSheetResponse(values: string[][], productValues: string[][]): SheetResult {
   if (!values || values.length < 4) return { locations: [], productCatalog: {} };
 
   const row0 = values[0]; // Crop
   const row1 = values[1]; // Stage
-  const row2 = values[2]; // Image
+  const row2 = values[2]; // Dịch hại
   const row3 = values[3]; // Medicine / Header
 
   const METADATA_LABELS = {
@@ -13,26 +13,30 @@ export function parseGoogleSheetResponse(values: string[][]): SheetResult {
     OPPORTUNITY: "Cơ hội thị trường"
   };
 
-  // 1. Build a global product catalog (Medicine Name -> Image URL)
-  const productCatalog: Record<string, string> = {};
-  for (let i = 4; i < Math.max(row2.length, row3.length); i++) {
-    const medName = (row3[i] || "").trim();
-    const imgUrl = (row2[i] || "").trim();
+  // 1. Build a global product catalog from productValues (Excel "Products" sheet)
+  const productCatalog: Record<string, ProductInfo> = {};
+  if (productValues && productValues.length > 1) {
+    for (let i = 1; i < productValues.length; i++) {
+      const row = productValues[i];
+      const name = (row[0] || "").trim();
+      const imageLegacy = (row[1] || "").trim(); // Column B
+      const imageNew = (row[2] || "").trim();    // Column C (ImageURL)
+      const price = (row[3] || "").trim();       // Column D (Price)
 
-    // Only catalog real products, not metadata headers
-    if (medName && medName !== METADATA_LABELS.AREA && medName !== METADATA_LABELS.OPPORTUNITY && medName !== "Cây" && medName !== "Tỉnh" && medName !== "Xã") {
-      if (imgUrl && imgUrl !== "0") {
-        if (!productCatalog[medName] || productCatalog[medName] === "0") {
-          productCatalog[medName] = imgUrl;
-        }
+      if (name) {
+        // Prioritize new ImageURL field, fallback to legacy Image column
+        const finalImage = imageNew && imageNew !== "0" ? imageNew : imageLegacy;
+        productCatalog[name] = { image: finalImage || "0", price: price || "0" };
       }
     }
   }
 
+  // Fallback: If image not in catalog, check Row 2/3 of final sheet for legacy support or missed items
+  // (Wait, Row 2 is now Pests, so we shouldn't hunt for images there unless they are URLs)
+
   const normalize = (s: string) => {
     let trimmed = s.trim().replace(/\s+/g, " ");
     if (!trimmed || trimmed.toLowerCase() === "(blank)") return "";
-    // Remove "Total" from the name for grouping, but keep track of it if needed
     trimmed = trimmed.replace(/ total/i, "");
     return trimmed.charAt(0).toUpperCase() + trimmed.slice(1).toLowerCase();
   };
@@ -42,6 +46,7 @@ export function parseGoogleSheetResponse(values: string[][]): SheetResult {
     colIndex: number;
     cropName: string;
     stageName: string;
+    pestName: string;
     medicineName: string;
     isCropTotal: boolean;
     isStageTotal: boolean;
@@ -55,13 +60,12 @@ export function parseGoogleSheetResponse(values: string[][]): SheetResult {
   for (let i = 4; i < Math.max(row0.length, row3.length); i++) {
     const cropCell = row0[i];
     const stageCell = row1[i];
+    const pestName = (row2[i] || "").trim();
     const medicineName = (row3[i] || "").trim();
 
     if (cropCell && cropCell !== "Cây") {
       currentCropRaw = cropCell;
     }
-    // Note: Stage can change even if Crop doesn't. 
-    // If stageCell is provided, it's a new or continuing stage name.
     if (stageCell) {
       currentStageRaw = stageCell;
     }
@@ -73,6 +77,7 @@ export function parseGoogleSheetResponse(values: string[][]): SheetResult {
       colIndex: i,
       cropName: normalize(currentCropRaw),
       stageName: normalize(currentStageRaw),
+      pestName: pestName,
       medicineName,
       isCropTotal,
       isStageTotal,
@@ -83,10 +88,34 @@ export function parseGoogleSheetResponse(values: string[][]): SheetResult {
 
   // 3. Parse data rows
   const dataRows = values.slice(4);
+
+  // Map to store Province Total Area (Key: Province Name)
+  const provinceAreaMap: Record<string, string> = {};
+  dataRows.forEach(row => {
+    const provinceRaw = (row[0] || "").trim();
+    if (provinceRaw.toLowerCase().endsWith("total")) {
+      const provinceName = provinceRaw.substring(0, provinceRaw.length - 5).trim();
+      provinceAreaMap[provinceName] = row[2] || "0";
+    }
+  });
+
   const locations: ProcessedLocationData[] = dataRows.map(row => {
-    const province = row[0] || "";
-    const ward = row[1] || "";
-    const totalArea = row[2] || "0";
+    const provinceRaw = (row[0] || "").trim();
+    const wardRaw = (row[1] || "").trim();
+
+    // Skip "Total" rows from becoming separate entries in the list
+    if (provinceRaw.toLowerCase().endsWith("total")) return null;
+
+    const isProvinceLevel = wardRaw.toLowerCase() === "all" || !wardRaw;
+    const provinceName = provinceRaw;
+    const wardName = isProvinceLevel ? "All" : wardRaw;
+
+    // Resolve Total Area for Province level from the "Total" rows we indexed
+    let totalArea = row[2] || "0";
+    if (isProvinceLevel) {
+      totalArea = provinceAreaMap[provinceName] || totalArea;
+    }
+
     const opportunity = row[3] || "0";
 
     const cropsMap: Map<string, CropData> = new Map();
@@ -105,51 +134,53 @@ export function parseGoogleSheetResponse(values: string[][]): SheetResult {
         cropsMap.set(mapping.cropName, crop);
       }
 
-      // Handle Crop Total
       if (mapping.isCropTotal) {
         if (mapping.isArea) crop.totalArea = value;
         if (mapping.isOpportunity) crop.opportunity = value;
         return;
       }
 
-      // Find or create stage
       let stage = crop.stages.find(s => s.name === mapping.stageName);
       if (!stage) {
         stage = {
           name: mapping.stageName,
           medicines: [],
           totalArea: "0",
-          opportunity: "0"
+          opportunity: "0",
+          pests: []
         };
         crop.stages.push(stage);
       }
 
-      // Handle Stage Total / Metadata
       if (mapping.isStageTotal) {
         if (mapping.isArea) stage.totalArea = value;
         if (mapping.isOpportunity) stage.opportunity = value;
-        // Optimization: "Stage Total" columns usually don't have medicines in row 3, 
-        // but if they do (like an actual product), it will fall through.
       }
 
-      // Add as medicine if it's not a metadata column
+      // Add solution/medicine if not metadata
       if (!mapping.isArea && !mapping.isOpportunity) {
+        // Collect pests for the stage
+        if (mapping.pestName && !stage.pests.includes(mapping.pestName)) {
+          stage.pests.push(mapping.pestName);
+        }
+
         stage.medicines.push({
           name: mapping.medicineName,
           value: value,
-          imageUrl: productCatalog[mapping.medicineName] || "0"
+          pest: mapping.pestName,
+          imageUrl: productCatalog[mapping.medicineName]?.image || "0"
         });
       }
     });
 
     return {
-      province,
-      ward,
+      province: provinceName,
+      ward: wardName,
       totalArea,
       opportunity,
       crops: Array.from(cropsMap.values()).filter(c => c.stages.length > 0 || c.totalArea !== "0")
     };
-  });
+  }).filter(Boolean) as ProcessedLocationData[];
 
   return { locations, productCatalog };
 }

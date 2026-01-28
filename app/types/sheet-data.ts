@@ -2,6 +2,7 @@ export interface MedicineData {
     name: string;
     value: string;
     imageUrl?: string;
+    pest?: string;
 }
 
 export interface StageData {
@@ -9,6 +10,7 @@ export interface StageData {
     medicines: MedicineData[];
     totalArea?: string;
     opportunity?: string;
+    pests: string[];
 }
 
 export interface CropData {
@@ -27,9 +29,14 @@ export interface ProcessedLocationData {
     rawValues?: string[];
 }
 
+export interface ProductInfo {
+    image: string;
+    price: string;
+}
+
 export interface SheetResult {
     locations: ProcessedLocationData[];
-    productCatalog: Record<string, string>;
+    productCatalog: Record<string, ProductInfo>;
 }
 
 export interface SheetData {

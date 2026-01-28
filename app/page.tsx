@@ -32,16 +32,19 @@ export default function Home() {
   useEffect(() => {
     const SHEET_ID = "14hg74J-k4Wlzi3EulkouXfefWzBcuJQ89J70b-0wgAQ";
     const API_KEY = "AIzaSyBhjziOYoLoj76NCoSMAd7GZMww5vK1agc";
-    const RANGE = "final!A1:BFI1043";
+    const RANGE_FINAL = "final!A1:BFI1043";
+    const RANGE_PRODUCTS = "Products!A1:D200";
 
-    fetch(`https://sheets.googleapis.com/v4/spreadsheets/${SHEET_ID}/values/${RANGE}?key=${API_KEY}`)
+    fetch(`https://sheets.googleapis.com/v4/spreadsheets/${SHEET_ID}/values:batchGet?ranges=${RANGE_FINAL}&ranges=${RANGE_PRODUCTS}&key=${API_KEY}`)
       .then(res => {
         if (!res.ok) throw new Error("Auth/Network error");
         return res.json();
       })
       .then(data => {
-        if (data.values) {
-          const processed = parseGoogleSheetResponse(data.values);
+        if (data.valueRanges && data.valueRanges[0].values) {
+          const finalValues = data.valueRanges[0].values;
+          const productValues = data.valueRanges[1]?.values || [];
+          const processed = parseGoogleSheetResponse(finalValues, productValues);
           setSheetData(processed);
         }
       })
@@ -151,7 +154,7 @@ export default function Home() {
               provinces={provinces}
               selectedLocation={selectedLocation}
               onLocationClick={handleLocationClick}
-              highlightedProvinceCodes={highlightedProvinceCodes}
+              highlightedProvinceCodes={selectedLocation ? [] : highlightedProvinceCodes}
             />
           </div>
         </div>
@@ -162,7 +165,7 @@ export default function Home() {
           <VietnamMap
             selectedLocation={selectedLocation}
             onFeatureClick={handleFeatureClick}
-            highlightedProvinceCodes={highlightedProvinceCodes}
+            highlightedProvinceCodes={selectedLocation ? [] : highlightedProvinceCodes}
           />
         </div>
 
@@ -200,7 +203,7 @@ export default function Home() {
               provinces={provinces}
               selectedLocation={selectedLocation}
               onLocationClick={handleLocationClick}
-              highlightedProvinceCodes={highlightedProvinceCodes}
+              highlightedProvinceCodes={selectedLocation ? [] : highlightedProvinceCodes}
             />
           </BottomSheet>
 
