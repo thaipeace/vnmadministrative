@@ -6,6 +6,7 @@ import { ProcessedLocationData, CropData, StageData, MedicineData, ProductInfo }
 import { normalizeLocationName } from "../utils/location";
 import { LocationIcon } from "@/public/icon/location";
 import { getGoogleDriveDirectLink } from "../utils/drive";
+import { formatNumber } from "../utils/format";
 
 interface InfoPanelProps {
   selectedLocation: SelectedLocation | null;
@@ -70,7 +71,7 @@ export default function InfoPanel({ selectedLocation, sheetData, provinces, prod
           <div>
             <span className="block text-[9px] text-gray-400 font-bold uppercase tracking-widest mb-0.5">Tổng diện tích thực tế</span>
             <div className="flex items-baseline gap-1">
-              <span className="text-lg font-extrabold text-gray-900">{match?.totalArea || "---"}</span>
+              <span className="text-lg font-extrabold text-gray-900">{formatNumber(match?.totalArea)}</span>
               <span className="text-[10px] font-bold text-gray-400">ha</span>
             </div>
           </div>
@@ -78,7 +79,7 @@ export default function InfoPanel({ selectedLocation, sheetData, provinces, prod
           <div>
             <span className="block text-[9px] text-gray-400 font-bold uppercase tracking-widest mb-0.5">Cơ hội thị trường</span>
             <div className="flex items-baseline gap-1">
-              <span className="text-lg font-bold text-blue-600">{match?.opportunity || "---"}</span>
+              <span className="text-lg font-bold text-blue-600">{formatNumber(match?.opportunity)}</span>
             </div>
           </div>
         </div>
@@ -97,7 +98,7 @@ export default function InfoPanel({ selectedLocation, sheetData, provinces, prod
                   </h3>
                   <div className="text-right">
                     <span className="text-[10px] text-gray-400 font-bold uppercase">Tổng diện tích</span>
-                    <div className="text-sm font-bold text-gray-900">{crop.totalArea} ha</div>
+                    <div className="text-sm font-bold text-gray-900">{formatNumber(crop.totalArea)} ha</div>
                   </div>
                 </div>
 
@@ -115,7 +116,7 @@ export default function InfoPanel({ selectedLocation, sheetData, provinces, prod
                           {stage.totalArea && stage.totalArea !== "0" && (
                             <div className="text-right">
                               <span className="text-[8px] text-gray-300 font-bold uppercase block">Diện tích</span>
-                              <span className="text-xs font-bold text-gray-600">{stage.totalArea} ha</span>
+                              <span className="text-xs font-bold text-gray-600">{formatNumber(stage.totalArea)} ha</span>
                             </div>
                           )}
                         </div>
@@ -170,11 +171,11 @@ export default function InfoPanel({ selectedLocation, sheetData, provinces, prod
                                   <div className="text-[10px] text-gray-400 font-medium line-clamp-1 italic mb-2">Đối tượng: {med.pest || "---"}</div>
                                   <div className="flex items-center justify-between">
                                     <div className="text-xs font-black text-emerald-600 bg-emerald-50 px-2 py-0.5 rounded-md">
-                                      {med.value}
+                                      {formatNumber(med.value)}
                                     </div>
                                     {prodInfo?.price && prodInfo.price !== "0" && (
                                       <div className="text-[10px] font-bold text-gray-400">
-                                        {Number(prodInfo.price).toLocaleString('vi-VN')} đ
+                                        {formatNumber(prodInfo.price)} đ
                                       </div>
                                     )}
                                   </div>
@@ -193,7 +194,7 @@ export default function InfoPanel({ selectedLocation, sheetData, provinces, prod
                             Cơ hội thị trường
                           </h5>
                           <div className="text-lg font-black text-blue-800">
-                            {stage.opportunity}
+                            {formatNumber(stage.opportunity)}
                             <span className="text-xs ml-1 font-bold text-blue-400 uppercase">ha khả thi</span>
                           </div>
                         </div>

@@ -58,8 +58,8 @@ export function parseGoogleSheetResponse(values: string[][], productValues: stri
   let currentStageRaw = "";
 
   for (let i = 4; i < Math.max(row0.length, row3.length); i++) {
-    const cropCell = row0[i];
-    const stageCell = row1[i];
+    const cropCell = (row0[i] || "").trim();
+    const stageCell = (row1[i] || "").trim();
     const pestName = (row2[i] || "").trim();
     const medicineName = (row3[i] || "").trim();
 
@@ -70,8 +70,17 @@ export function parseGoogleSheetResponse(values: string[][], productValues: stri
       currentStageRaw = stageCell;
     }
 
+    const medLower = medicineName.toLowerCase();
+    const isExplicitArea = medLower === METADATA_LABELS.AREA.toLowerCase() || medLower.includes("diện tích");
+    const isExplicitOpportunity = medLower === METADATA_LABELS.OPPORTUNITY.toLowerCase() || medLower.includes("cơ hội");
+
     const isCropTotal = currentCropRaw.toLowerCase().includes("total");
     const isStageTotal = currentStageRaw.toLowerCase().includes("total");
+
+    // Robust detection: If it's a Total column and Row 3 is blank, default to Area
+    // unless it explicitly says Opportunity.
+    const isOpportunity = isExplicitOpportunity || (isStageTotal && medLower.includes("cơ hội"));
+    const isArea = isExplicitArea || ((isCropTotal || isStageTotal) && !isOpportunity && (!medicineName || medLower.includes("diện tích")));
 
     colMappings.push({
       colIndex: i,
@@ -81,8 +90,8 @@ export function parseGoogleSheetResponse(values: string[][], productValues: stri
       medicineName,
       isCropTotal,
       isStageTotal,
-      isArea: medicineName === METADATA_LABELS.AREA,
-      isOpportunity: medicineName === METADATA_LABELS.OPPORTUNITY
+      isArea,
+      isOpportunity
     });
   }
 

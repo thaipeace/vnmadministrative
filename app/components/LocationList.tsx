@@ -3,6 +3,7 @@
 import { Province, SelectedLocation } from "../types/administrative";
 import { useState, useEffect, useRef } from "react";
 import { ChevronIcon } from "@/public/icon/chevron";
+import { formatNumber } from "../utils/format";
 
 interface LocationListProps {
   provinces: Province[];
@@ -62,7 +63,7 @@ export default function LocationList({
       <div className="p-4 border-b sticky top-0 z-10 bg-white md:bg-white backdrop-blur-md">
         <h2 className="text-lg font-bold text-gray-800">Danh sách địa phương</h2>
         <p className="text-xs text-gray-500 mt-1">
-          {provinces.length} tỉnh/thành • {provinces.reduce((sum, p) => sum + p.wards.length, 0)} xã/phường
+          {formatNumber(provinces.length)} tỉnh/thành • {formatNumber(provinces.reduce((sum, p) => sum + p.wards.length, 0))} xã/phường
         </p>
       </div>
 
