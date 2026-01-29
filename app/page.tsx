@@ -7,7 +7,7 @@ import LocationList from "./components/LocationList";
 import BottomSheet from "./components/BottomSheet";
 import InfoPanel from "./components/InfoPanel";
 import CropFilter from "./components/CropFilter";
-import { ProcessedLocationData, SheetResult } from "./types/sheet-data";
+import { SheetResult } from "./types/sheet-data";
 import { CloseIcon } from "@/public/icon/close";
 import { normalizeLocationName } from "./utils/location";
 import { parseGoogleSheetResponse } from "./utils/sheet-parser";
@@ -33,7 +33,7 @@ export default function Home() {
     const SHEET_ID = "14hg74J-k4Wlzi3EulkouXfefWzBcuJQ89J70b-0wgAQ";
     const API_KEY = "AIzaSyBhjziOYoLoj76NCoSMAd7GZMww5vK1agc";
     const RANGE_FINAL = "final!A1:BFI1043";
-    const RANGE_PRODUCTS = "Products!A1:D200";
+    const RANGE_PRODUCTS = "Products!A1:F272";
 
     fetch(`https://sheets.googleapis.com/v4/spreadsheets/${SHEET_ID}/values:batchGet?ranges=${RANGE_FINAL}&ranges=${RANGE_PRODUCTS}&key=${API_KEY}`)
       .then(res => {

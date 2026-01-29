@@ -98,34 +98,50 @@ export function parseGoogleSheetResponse(values: string[][], productValues: stri
   // 3. Parse data rows
   const dataRows = values.slice(4);
 
-  // Map to store Province Total Area (Key: Province Name)
-  const provinceAreaMap: Record<string, string> = {};
+  // Map to store Province level metadata (Key: Province Name)
+  const provinceTotalAreaMap: Record<string, string> = {};
+  const provinceTotalOpportunityMap: Record<string, string> = {};
+
   dataRows.forEach(row => {
     const provinceRaw = (row[0] || "").trim();
+    const wardRaw = (row[1] || "").trim();
+    const wardRawLower = wardRaw.toLowerCase();
+
+    // 1. Check Column A for "Province Total" (e.g. "An Giang Total")
     if (provinceRaw.toLowerCase().endsWith("total")) {
       const provinceName = provinceRaw.substring(0, provinceRaw.length - 5).trim();
-      provinceAreaMap[provinceName] = row[2] || "0";
+      provinceTotalAreaMap[provinceName] = row[2] || "0";
+      provinceTotalOpportunityMap[provinceName] = row[3] || "0";
+    }
+
+    // 2. Check Column B for "Total"
+    if (wardRawLower === "total") {
+      provinceTotalAreaMap[provinceRaw] = row[2] || "0";
+      provinceTotalOpportunityMap[provinceRaw] = row[3] || "0";
     }
   });
 
   const locations: ProcessedLocationData[] = dataRows.map(row => {
     const provinceRaw = (row[0] || "").trim();
     const wardRaw = (row[1] || "").trim();
+    const wardRawLower = wardRaw.toLowerCase();
 
     // Skip "Total" rows from becoming separate entries in the list
-    if (provinceRaw.toLowerCase().endsWith("total")) return null;
+    if (provinceRaw.toLowerCase().endsWith("total") || wardRawLower === "total") return null;
 
-    const isProvinceLevel = wardRaw.toLowerCase() === "all" || !wardRaw;
+    const isProvinceLevel = wardRawLower === "all" || !wardRaw;
     const provinceName = provinceRaw;
     const wardName = isProvinceLevel ? "All" : wardRaw;
 
-    // Resolve Total Area for Province level from the "Total" rows we indexed
+    // Resolve Area and Opportunity for Province level
     let totalArea = row[2] || "0";
-    if (isProvinceLevel) {
-      totalArea = provinceAreaMap[provinceName] || totalArea;
-    }
+    let opportunity = row[3] || "0";
 
-    const opportunity = row[3] || "0";
+    if (isProvinceLevel) {
+      // Use values from "Total" summary rows if they exist, otherwise keep original
+      totalArea = provinceTotalAreaMap[provinceName] || totalArea;
+      opportunity = provinceTotalOpportunityMap[provinceName] || opportunity;
+    }
 
     const cropsMap: Map<string, CropData> = new Map();
 
